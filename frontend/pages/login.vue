@@ -1,46 +1,65 @@
 <script setup lang="ts">
 import {Input} from '@/components/ui/input'
 import {Label} from '@/components/ui/label'
-import {definePageMeta} from "#imports";
+import * as yup from 'yup';
+import {useForm} from "vee-validate";
+import type {Credentials} from "~/stores/useAuthStore";
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 definePageMeta({
-  middleware: ['guest']
+  auth: 'guest'
 })
 
 const auth = useAuthStore();
 
-const {user, access_token, isLoggedIn} = storeToRefs(auth);
-
-
-const credentials = ref({
-  email: "christianlugod05@gmail.com",
-  password: "2559069dev"
+const alert = ({
+  message: '',
+  show: false,
 })
 
-const handleSubmit = async () => {
-   await auth.login(credentials.value);
-}
+const { handleSubmit, isSubmitting, defineField} = useForm<Credentials>({
+  initialValues: {
+    email: "christianlugod05@gmail.com",
+    password: "2559069dev"
+  }
+});
 
+const onSubmit = handleSubmit(async (values)=> {
+  try {
+    await auth.login(values)
+  } catch (e: any) {
+    console.log('Login Error',e.message);
 
+    alert.message = e.message;
+    alert.show = true;
+  }
+});
 
+const [email, emailAttrs] = defineField('email');
+const [password, passwordAttrs ] = defineField('password');
 </script>
 
 <template>
   <div class="container flex items-center justify-center h-screen">
     <div class="grid w-full max-w-sm items-center gap-1.5 mx-auto">
 
-      <template>
-        <Label for="email">Email</Label>
-        <Input v-model="credentials.email" id="email" type="email" placeholder="Email"/>
-        <Label for="email">Password</Label>
-        <Input v-model="credentials.password" id="email" type="password" placeholder="Email"/>
 
-        <Button @click="handleSubmit">Login</Button>
+      <Alert v-if="alert.show" variant="destructive">
+        <AlertDescription>
+          {{alert.message}}
+        </AlertDescription>
+      </Alert>
 
-        <hr>
-        <GoogleButton/>
-        <FacebookButton/>
-      </template>
+
+      <Label for="email">Email</Label>
+      <Input v-model="email" v-bind="emailAttrs" id="email" type="email" placeholder="Email"/>
+      <Label for="email">Password</Label>
+      <Input v-model="password" v-bind="passwordAttrs" type="password" placeholder="Password"/>
+      <Button :loading="isSubmitting" :disabled="isSubmitting" @click="onSubmit">Login</Button>
+
+      <hr>
+      <GoogleButton/>
+      <FacebookButton/>
 
     </div>
   </div>

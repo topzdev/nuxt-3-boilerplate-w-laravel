@@ -1,6 +1,6 @@
 import {type UseFetchOptions, useRequestHeaders} from "nuxt/app";
 
-export function useApiFetch<T>(url: string, options: UseFetchOptions<T> = {}) {
+export function useApiFetch<T>(path: string, options: UseFetchOptions<T> = {}) {
     const runtimeConfig = useRuntimeConfig();
     let headers: any = {
         referer: 'http://127.0.0.1:8000'
@@ -16,11 +16,8 @@ export function useApiFetch<T>(url: string, options: UseFetchOptions<T> = {}) {
             ...headers,
         }
     }
-
-    console.log('Token', access_token.value);
-    console.log('Currently Exec: ',url)
-
-    return useFetch<T>(url, {
+    console.log('Headers', headers);
+    return useFetch(`${runtimeConfig.public.apiUrl}${path}`, {
         watch: false,
         ...options,
         headers: {

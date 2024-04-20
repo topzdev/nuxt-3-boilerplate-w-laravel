@@ -1,5 +1,5 @@
 import {defineStore} from 'pinia';
-import {FetchContext, FetchResponse} from "ofetch";
+import {type FetchContext, type FetchResponse} from "ofetch";
 
 export type Credentials = {
     email: string,
@@ -14,6 +14,8 @@ export type RegisterInfo = {
     password_confirmation: string
 }
 
+export type UpdateUser =  Pick<User,  'email' | 'firstname' | 'lastname'>
+
 export type User = {
     id: number,
     provider: string | null,
@@ -24,6 +26,7 @@ export type User = {
     email_verified_at: string,
     updated_at: string,
     created_at: string,
+    is_facebook_registered?: boolean,
 }
 
 type LoginResponse = {
@@ -35,28 +38,49 @@ export const useAuthStore = defineStore('auth', () => {
     const runtimeConfig = useRuntimeConfig();
     const router = useRouter();
 
-    const access_token  = useCookie('access_token');
-    const user = useCookie('user')
+    const access_token = useCookie<string | null>('access_token');
+    const user = useCookie<User | null>('user')
 
     const isLoggedIn = computed(() => !!user.value);
     const fetchUser = async () => {
-        const {data, error} = await useApiFetch<User>(`${runtimeConfig.public.apiUrl}/user`, {
+        const {data, error} = await useApiFetch<User>(`/user`, {
             method: 'GET',
         })
-        console.log(error)
+
+        if (error.value) {
+            throw error.value.data;
+        }
+        // @ts-ignore;
         user.value = data.value;
     }
 
+    const updateUser = async (info: UpdateUser) => {
+        const {data, error} = await useApiFetch<User>(`/update-user`, {
+            method: 'POST',
+            body: info,
+        })
+
+        if (error.value) {
+            throw error.value.data;
+        }
+        await fetchUser();
+        await router.push('/')
+    }
+
+
     const login = async (credentials: Credentials) => {
         console.log('Logging in...');
-        const {data, error} = await useFetch(`${runtimeConfig.public.backendUrl}/login`, {
+        const {data, error} = await useFetch<LoginResponse>(`${runtimeConfig.public.backendUrl}/login`, {
             method: 'POST',
             body: credentials,
-            onResponse(context: FetchContext & { response: FetchResponse<R> }): Promise<void> | void {
+            onResponse(context: FetchContext & { response: FetchResponse<LoginResponse> }): Promise<void> | void {
                 access_token.value = context.response._data.access_token
             }
         })
-        console.log(error);
+
+        if (error.value) {
+            throw error.value.data;
+        }
         await fetchUser();
 
         await router.push('/')
@@ -66,6 +90,7 @@ export const useAuthStore = defineStore('auth', () => {
         console.log('Oauth login....')
         const {data, error} = await useFetch(`${runtimeConfig.public.backendUrl}/oauth`, {
             method: 'POST',
+            watch: false,
             body: {
                 provider,
                 access_token: provider_access_token
@@ -74,7 +99,11 @@ export const useAuthStore = defineStore('auth', () => {
                 access_token.value = context.response._data.access_token
             }
         })
-        console.log(error);
+
+        if (error.value) {
+            throw error.value.data;
+        }
+
         await fetchUser();
 
         await router.push('/')
@@ -89,7 +118,12 @@ export const useAuthStore = defineStore('auth', () => {
                 access_token.value = context.response._data.access_token
             }
         })
-        console.log(error);
+
+
+        if (error.value) {
+            throw error.value.data;
+        }
+
         // access_token.value = data.value.access_token;
         await fetchUser();
 
@@ -97,16 +131,16 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     const logout = async () => {
-        await useApiFetch(`${runtimeConfig.public.backendUrl}/logout`, {
+        await useApiFetch(`/logout`, {
             method: 'POST'
         })
         access_token.value = null;
         user.value = null;
 
         await router.push('/login')
-    }
+    };
 
 
 
-    return {user, login, logout, fetchUser, register, access_token, isLoggedIn, oauthLogin}
+    return {user, login, logout, fetchUser, register, access_token, isLoggedIn, oauthLogin, updateUser}
 })
